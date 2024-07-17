@@ -35,10 +35,10 @@ async def deployRoom(request: DeployRoomRequest):
     if request.token == config.TOKEN:
         try:
             process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\.\Server.exe "
-                                        f"-serverId='{request.guid}' "
-                                        f"-port='{request.port}' "
-                                        f"-maxPlayers='{request.player_amount}' "
-                                        f"-isFree='{True if request.bid == 0 else False}'"])
+                                        f"-serverId={request.guid} "
+                                        f"-port={request.port} "
+                                        f"-maxPlayers={request.player_amount} "
+                                        f"-isFree={True if request.bid == 0 else False}"])
             processes[request.guid] = process
             return True
         except:
