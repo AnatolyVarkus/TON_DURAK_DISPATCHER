@@ -34,7 +34,7 @@ async def deployRoom(request: DeployRoomRequest):
 
     if request.token == config.TOKEN:
         try:
-            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\StandaloneWindows64\StandaloneWindows64.exe "
+            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\StandaloneWindows64\.\StandaloneWindows64.exe "
                                         f"-serverId='{request.guid}' "
                                         f"-port='{request.port}' "
                                         f"-maxPlayers='{request.player_amount}' "
