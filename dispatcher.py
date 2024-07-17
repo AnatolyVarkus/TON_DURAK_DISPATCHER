@@ -34,7 +34,7 @@ async def deployRoom(request: DeployRoomRequest):
 
     if request.token == config.TOKEN:
         try:
-            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\StandaloneWindows64\.\StandaloneWindows64.exe "
+            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\.\Server.exe "
                                         f"-serverId='{request.guid}' "
                                         f"-port='{request.port}' "
                                         f"-maxPlayers='{request.player_amount}' "
@@ -52,9 +52,11 @@ async def removeRoom(request: RemoveRoomRequest):
     if request.token == config.TOKEN:
         try:
             last_process = processes.pop(request.guid)
-            last_process.terminate()
+            last_process.kill()
             return True
         except:
             return False
     else:
         raise HTTPException(status_code=400, detail="Incorrect token")
+
+uvicorn.run(app,host="178.20.44.32", port=8000)
