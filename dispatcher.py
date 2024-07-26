@@ -1,5 +1,6 @@
 import os
-
+import subprocess
+import atexit
 from fastapi import FastAPI, Request, Depends, Query, HTTPException, WebSocket
 from urllib.parse import unquote
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ import config
 import subprocess
 import random
 import nginx
+import uvicorn
 
 from proxy_server import create_config
 
@@ -16,10 +18,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 processes = {}
@@ -34,13 +36,33 @@ class DeployRoomRequest(BaseModel):
     player_amount: int
 
 
+class RequestRoomSchema(BaseModel):
+    token: str
+
+
+class RoomSchema(BaseModel):
+    guid: str
+    port: str
+    player_amount: int
+
+
 class RemoveRoomRequest(BaseModel):
     token: str
     guid: str
 
 
-@app.post('/deployroom')
-async def deployRoom(request: DeployRoomRequest):
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        await websocket.send_text(f"Message text was: {data}")
+
+
+@app.post('/room')
+async def deploy_room(request: DeployRoomRequest):
+    if request.port in [value[2] for key, value in processes]:
+        return HTTPException(status_code=400, detail='Given port is busy')
     if request.token == config.TOKEN:
         try:
             proxy_port = random.randint(50000, 50100)
@@ -49,31 +71,32 @@ async def deployRoom(request: DeployRoomRequest):
             busy_ports.append(proxy_port)
             listen_port = int(request.port)
             nginx_config = create_config(listen_port, proxy_port)
-            config_path = f'C:\\nginx-1.26.\proxy_{listen_port}_{proxy_port}.conf'
-            nginx.dumpf(nginx_config,config_path)
+            config_path = f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{listen_port}_{proxy_port}.conf'
+            nginx.dumpf(nginx_config, config_path)
 
-            os.system('C:\\nssm-2.24\nssm-2.24\win64\nssm.exe restart nginx')
-            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\.\Server.exe "
-                                        f"-serverId={request.guid} "
-                                        f"-port={proxy_port} "
-                                        f"-maxPlayers={request.player_amount} "
+            os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
+            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\StandaloneWindows64.exe",
+                                        f"-serverId={request.guid}",
+                                        f"-port={proxy_port}",
+                                        f"-maxPlayers={request.player_amount}",
                                         f"-isFree={True if request.bid == 0 else False}"])
-            processes[request.guid] = (process,config_path)
+            processes[request.guid] = (process, config_path, listen_port, request.player_amount)
             return True
-        except:
+        except Exception as e:
+            print(e)
             return False
     else:
         raise HTTPException(status_code=400, detail="Incorrect token")
 
 
-@app.post('/removeroom')
-async def removeRoom(request: RemoveRoomRequest):
+@app.delete('/room')
+async def remove_room(request: RemoveRoomRequest):
     if request.token == config.TOKEN:
         try:
             last_process = processes.pop(request.guid)
             last_process[0].kill()
             os.remove(last_process[1])
-            os.system('C:\\nssm-2.24\nssm-2.24\win64\nssm.exe restart nginx')
+            os.system('C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx')
             return True
         except:
             return False
@@ -81,4 +104,23 @@ async def removeRoom(request: RemoveRoomRequest):
         raise HTTPException(status_code=400, detail="Incorrect token")
 
 
-uvicorn.run(app, host="178.20.44.32", port=8000)
+@app.get('/room')
+async def get_rooms(request: RequestRoomSchema) -> list[RoomSchema]:
+    if request.token == config.TOKEN:
+        rooms = [RoomSchema(guid=key, port=value[2], player_amount=value[3]) for key, value in processes]
+        return rooms
+
+
+uvicorn.run(app, host="game.tondurakgame.com", port=8008,
+            ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
+            ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
+
+
+def on_close():
+    for key, value in processes:
+        value[0].kill()
+        os.remove(value[1])
+    os.system('C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx')
+
+
+atexit.register(on_close)
