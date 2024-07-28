@@ -156,8 +156,10 @@ def on_close():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="game.tondurakgame.com", port=8008,
-                ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
-                ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
-
+    try:
+        uvicorn.run(app, host="game.tondurakgame.com", port=8008,
+                    ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
+                    ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
+    except KeyboardInterrupt:
+        on_close()
     atexit.register(on_close)
