@@ -71,11 +71,11 @@ async def deploy_room(request: DeployRoomRequest):
             busy_ports.append(proxy_port)
             listen_port = int(request.port)
             nginx_config = create_config(listen_port, proxy_port)
-            config_path = f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{listen_port}_{proxy_port}.conf'
+            config_path = f'/etc/nginx/sites-enabled/proxy_{listen_port}_{proxy_port}.conf'
             nginx.dumpf(nginx_config, config_path)
 
-            os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
-            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\server.exe",
+            os.system(f"sudo systemctl reload nginx")
+            process = subprocess.Popen([f"/home/egor/build/server",
                                         f"-serverId={request.guid}",
                                         f"-port={proxy_port}",
                                         f"-maxPlayers={request.player_amount}",
@@ -96,7 +96,7 @@ async def remove_room(request: RemoveRoomRequest):
             last_process = processes.pop(request.guid)
             last_process[0].kill()
             os.remove(last_process[1])
-            os.system('C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx')
+            os.system('sudo systemctl reload nginx')
             return True
         except:
             return False
@@ -118,10 +118,10 @@ debug_room = None
 @debug_endpoints.post('/deployTestRoom')
 def deploy_test_room(player_amount):
     nginx_config = create_config(7777, 50101)
-    config_path = f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf'
+    config_path = f'/etc/nginx/sites-enabled/proxy_{7777}_{50101}.conf'
     nginx.dumpf(nginx_config, config_path)
 
-    os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
+    os.system(f"sudo systemctl reload nginx")
     process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\server.exe",
                                 f"-serverId=debug",
                                 f"-port=50101",
@@ -134,8 +134,8 @@ def deploy_test_room(player_amount):
 @debug_endpoints.delete("/closeTestRoom")
 def close_test_room():
     if debug_room is not None:
-        os.remove(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf')
-        os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
+        os.remove(f'/etc/nginx/sites-enabled/proxy_{7777}_{50101}.conf')
+        os.system(f"sudo systemctl reload nginx")
         debug_room.kill()
         return Response()
     return Response("Room isn't deployed", status_code=400)
@@ -145,21 +145,21 @@ app.include_router(debug_endpoints)
 
 
 def on_close():
-    if os.path.exists(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf'):
-        os.remove(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf')
+    if os.path.exists(f'/etc/nginx/sites-enabled/proxy_{7777}_{50101}.conf'):
+        os.remove(f'/etc/nginx/sites-enabled/proxy_{7777}_{50101}.conf')
     if debug_room is not None:
         debug_room.kill()
     for key, value in processes:
         value[0].kill()
         os.remove(value[1])
-    os.system('C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx')
+    os.system('sudo systemctl reload nginx')
 
 
 if __name__ == "__main__":
     try:
         uvicorn.run(app, host="game.tondurakgame.com", port=8008,
-                    ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
-                    ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
+                    ssl_keyfile="/etc/letsencrypt/live/game.tondurakgame.com/privkey.pem",
+                    ssl_certfile="/etc/letsencrypt/live/game.tondurakgame.com/fullchain.pem")
     except KeyboardInterrupt:
         on_close()
     atexit.register(on_close)
