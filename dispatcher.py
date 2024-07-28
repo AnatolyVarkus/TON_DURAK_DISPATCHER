@@ -1,7 +1,7 @@
 import os
 import subprocess
 import atexit
-from fastapi import FastAPI, Request, Depends, Query, HTTPException, WebSocket
+from fastapi import FastAPI, Request, Depends, Query, HTTPException, WebSocket, APIRouter, Response
 from urllib.parse import unquote
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse, Response
@@ -111,9 +111,37 @@ async def get_rooms(request: RequestRoomSchema) -> list[RoomSchema]:
         return rooms
 
 
-uvicorn.run(app, host="game.tondurakgame.com", port=8008,
-            ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
-            ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
+debug_endpoints = APIRouter(tags=["Debug"])
+debug_room = None
+
+
+@debug_endpoints.post('/deployTestRoom')
+def deploy_test_room(player_amount):
+    nginx_config = create_config(7777, 50101)
+    config_path = f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf'
+    nginx.dumpf(nginx_config, config_path)
+
+    os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
+    process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\StandaloneWindows64.exe",
+                                f"-serverId=debug",
+                                f"-port=50101",
+                                f"-maxPlayers={player_amount}",
+                                f"-isFree=True"])
+    global debug_room
+    debug_room = process
+
+
+@debug_endpoints.delete("/closeTestRoom")
+def close_test_room():
+    if debug_room is not None:
+        os.remove(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf')
+        os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
+        debug_room.kill()
+        return Response()
+    return Response("Room isn't deployed", status_code=400)
+
+
+app.include_router(debug_endpoints)
 
 
 def on_close():
@@ -123,4 +151,9 @@ def on_close():
     os.system('C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx')
 
 
-atexit.register(on_close)
+if __name__ == "__main__":
+    uvicorn.run(app, host="game.tondurakgame.com", port=8008,
+                ssl_keyfile="C:\\Users\Administrator\Desktop\Builds\Certs\privkey1.pem",
+                ssl_certfile="C:\\Users\\Administrator\\Desktop\\Builds\\Certs\\fullchain1.pem")
+
+    atexit.register(on_close)
