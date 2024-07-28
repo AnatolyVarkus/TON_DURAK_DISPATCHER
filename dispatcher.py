@@ -75,7 +75,7 @@ async def deploy_room(request: DeployRoomRequest):
             nginx.dumpf(nginx_config, config_path)
 
             os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
-            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\StandaloneWindows64.exe",
+            process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\server.exe",
                                         f"-serverId={request.guid}",
                                         f"-port={proxy_port}",
                                         f"-maxPlayers={request.player_amount}",
@@ -122,7 +122,7 @@ def deploy_test_room(player_amount):
     nginx.dumpf(nginx_config, config_path)
 
     os.system(f"C:\\nssm-2.24\\nssm-2.24\\win64\\nssm.exe restart nginx")
-    process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\StandaloneWindows64.exe",
+    process = subprocess.Popen([f"C:\\Users\Administrator\Desktop\Builds\server.exe",
                                 f"-serverId=debug",
                                 f"-port=50101",
                                 f"-maxPlayers={player_amount}",
@@ -145,6 +145,10 @@ app.include_router(debug_endpoints)
 
 
 def on_close():
+    if os.path.exists(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf'):
+        os.remove(f'C:\\nginx-1.26.1\\conf\\proxy\\proxy_{7777}_{50101}.conf')
+    if debug_room is not None:
+        debug_room.kill()
     for key, value in processes:
         value[0].kill()
         os.remove(value[1])
